@@ -8,8 +8,9 @@ import 'package:sidialichbeb/utils/helper/helper.dart';
 
 
 
-
 class PrayerTimeService {
+
+  final helper = Helper();
 
 
   Future<void> savePrayerTimesToSharedPref(PrayerTime prayerTimes) async {
@@ -25,19 +26,6 @@ class PrayerTimeService {
       prefs.setString('isha', prayerTimes.isha),
     ]);
 
-    for(int i=0;i<10;i++){
-    print(prayerTimes.dateFor);
-    print("\n");
-    print(prayerTimes.fajr);
-    print("\n");
-    print(prayerTimes.shurooq);
-    print("\n");
-    print(prayerTimes.dhuhr);
-    print("\n");
-    print(prayerTimes.asr);
-    print("\n");
-    print(prayerTimes.asr);
-    }
   }
 
 
@@ -115,12 +103,12 @@ class PrayerTimeService {
 
 
     final times = {
-      'Fajr': helper().parseTime(today,prayerTime.fajr),
-      'Shurooq': helper().parseTime(today,prayerTime.shurooq),
-      'Dhuhr': helper().parseTime(today,prayerTime.dhuhr),
-      'Asr': helper().parseTime(today,prayerTime.asr),
-      'Maghrib': helper().parseTime(today,prayerTime.maghrib),
-      'Isha': helper().parseTime(today,prayerTime.isha),
+      'Fajr': helper.parseTime(today,prayerTime.fajr),
+      'Shurooq': helper.parseTime(today,prayerTime.shurooq),
+      'Dhuhr': helper.parseTime(today,prayerTime.dhuhr),
+      'Asr': helper.parseTime(today,prayerTime.asr),
+      'Maghrib': helper.parseTime(today,prayerTime.maghrib),
+      'Isha': helper.parseTime(today,prayerTime.isha),
     };
 
     for (final entry in times.entries) {

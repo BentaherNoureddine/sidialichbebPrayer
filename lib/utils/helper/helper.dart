@@ -1,6 +1,6 @@
 import 'package:intl/intl.dart';
 
-class helper {
+class Helper {
 
   DateTime parseTime(String dateString, String timeString) {
     final format = DateFormat('yyyy-M-d H:mm'); // H = 24-hour format (0-23)
@@ -43,6 +43,39 @@ class helper {
 
 
 
+  Duration calculateTimeUntilPrayer(String prayerTime24Hour) {
+    final now = DateTime.now();
+    final parts = prayerTime24Hour.split(':');
+    final prayerHour = int.parse(parts[0]);
+    final prayerMinute = int.parse(parts[1]);
+
+    // Create a DateTime object for the prayer time today
+    DateTime prayerDateTime = DateTime(
+      now.year,
+      now.month,
+      now.day,
+      prayerHour,
+      prayerMinute,
+    );
+
+    // If the prayer time has already passed today, set it for tomorrow
+    if (prayerDateTime.isBefore(now)) {
+      prayerDateTime = prayerDateTime.add(const Duration(days: 1));
+    }
+
+    return prayerDateTime.difference(now);
+  }
+
+
+
+
+
 
 
 }
+
+
+
+
+
+
