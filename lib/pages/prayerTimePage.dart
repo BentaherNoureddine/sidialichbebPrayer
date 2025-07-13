@@ -1,540 +1,282 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'dart:convert';
-import 'dart:async';
-import 'package:http/http.dart' as http;
+import 'package:sidialichbeb/model/prayerTime.dart';
+import 'package:sidialichbeb/service/prayerTimeService.dart';
+import 'package:sidialichbeb/utils/constants/constants.dart';
+import 'package:sidialichbeb/utils/helper/helper.dart';
+import 'package:flutter/services.dart';
+
+
 
 class PrayerTimePage extends StatefulWidget {
+  const PrayerTimePage({super.key});
+
   @override
-  _PrayerTimePageState createState() => _PrayerTimePageState();
+  State<PrayerTimePage> createState() => _PrayerTimePage();
 }
 
-class _PrayerTimePageState extends State<PrayerTimePage> {
-  Map<String, dynamic>? prayerData;
-  String currentTime = '';
-  Timer? timer;
-  bool isLoading = true;
-  String? error;
+class _PrayerTimePage extends State<PrayerTimePage> {
+  PrayerTime? _prayerTime;
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    fetchPrayerTimes();
-    startTimer();
+    _loadPrayerData();
   }
 
-  @override
-  void dispose() {
-    timer?.cancel();
-    super.dispose();
-  }
+  Future<void> _loadPrayerData() async {
+    final prayerService = PrayerTimeService();
+    PrayerTime? data = await prayerService.getPrayerTimesFromSharedPref();
 
-  void startTimer() {
-    timer = Timer.periodic(Duration(seconds: 1), (timer) {
-      setState(() {
-        currentTime = _formatCurrentTime();
-      });
+    setState(() {
+      _prayerTime = data;
+      _isLoading = false;
     });
   }
 
-  String _formatCurrentTime() {
-    final now = DateTime.now();
-    return '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}';
+  String _getNextPrayerName(PrayerTime prayerTime) {
+    return PrayerTimeService().getNextPrayer(prayerTime);
   }
 
-  Future<void> fetchPrayerTimes() async {
-    try {
-      final response = await http.get(
-        Uri.parse('https://muslimsalat.com/bizerte.json?key='),
-      );
-
-      if (response.statusCode == 200) {
-        setState(() {
-          prayerData = json.decode(response.body);
-          isLoading = false;
-          error = null;
-        });
-      } else {
-        setState(() {
-          error = 'Failed to load prayer times';
-          isLoading = false;
-        });
-      }
-    } catch (e) {
-      setState(() {
-        error = 'Network error: ${e.toString()}';
-        isLoading = false;
-      });
-    }
+  bool _isNextPrayer(String arabicPrayerName) {
+    if (_prayerTime == null) return false;
+    final next = _getNextPrayerName(_prayerTime!).toLowerCase();
+    final arabicName = arabicPrayerNames[next];
+    return arabicPrayerName == arabicName;
   }
 
-  String _getNextPrayer() {
-    if (prayerData == null || prayerData!['items'].isEmpty) return '';
 
-    final prayers = prayerData!['items'][0];
-    final now = DateTime.now();
-    final currentTimeMinutes = now.hour * 60 + now.minute;
 
-    final prayerTimes = [
-      {'name': 'Fajr', 'time': prayers['fajr']},
-      {'name': 'Dhuhr', 'time': prayers['dhuhr']},
-      {'name': 'Asr', 'time': prayers['asr']},
-      {'name': 'Maghrib', 'time': prayers['maghrib']},
-      {'name': 'Isha', 'time': prayers['isha']},
-    ];
-
-    for (var prayer in prayerTimes) {
-      final prayerTime = _parseTime(prayer['time']);
-      if (prayerTime > currentTimeMinutes) {
-        return prayer['name'];
-      }
-    }
-    return 'Fajr'; // Next day's Fajr
-  }
-
-  int _parseTime(String time) {
-    final parts = time.split(' ');
-    final timeParts = parts[0].split(':');
-    int hours = int.parse(timeParts[0]);
-    int minutes = int.parse(timeParts[1]);
-
-    if (parts[1].toLowerCase() == 'pm' && hours != 12) {
-      hours += 12;
-    } else if (parts[1].toLowerCase() == 'am' && hours == 12) {
-      hours = 0;
-    }
-
-    return hours * 60 + minutes;
-  }
-
-  Widget _buildPrayerTimeCard(String prayerName, String time, bool isNext) {
-    return Container(
-      margin: EdgeInsets.symmetric(vertical: 4),
-      padding: EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: isNext ? Colors.green.withOpacity(0.1) : Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: isNext ? Colors.green : Colors.grey.shade300,
-          width: isNext ? 2 : 1,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
-            spreadRadius: 1,
-            blurRadius: 3,
-            offset: Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: isNext ? Colors.green : Colors.blue,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(
-                  _getPrayerIcon(prayerName),
-                  color: Colors.white,
-                  size: 20,
-                ),
-              ),
-              SizedBox(width: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    prayerName,
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: isNext ? Colors.green : Colors.black87,
-                    ),
-                  ),
-                  if (isNext)
-                    Text(
-                      'Next Prayer',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.green,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                ],
-              ),
-            ],
-          ),
-          Text(
-            time,
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: isNext ? Colors.green : Colors.black87,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  IconData _getPrayerIcon(String prayerName) {
-    switch (prayerName.toLowerCase()) {
-      case 'fajr':
-        return Icons.wb_twilight;
-      case 'dhuhr':
-        return Icons.wb_sunny;
-      case 'asr':
-        return Icons.wb_sunny_outlined;
-      case 'maghrib':
-        return Icons.wb_twilight;
-      case 'isha':
-        return Icons.nightlight_round;
-      default:
-        return Icons.access_time;
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.grey.shade50,
-      appBar: AppBar(
-        title: Text(
-          'Prayer Times',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-          ),
-        ),
-        backgroundColor: Colors.green,
-        elevation: 0,
-        actions: [
-          IconButton(
-            icon: Icon(Icons.refresh, color: Colors.white),
-            onPressed: () {
-              setState(() {
-                isLoading = true;
-                error = null;
-              });
-              fetchPrayerTimes();
-            },
-          ),
-        ],
+    SystemChrome.setSystemUIOverlayStyle(
+      const SystemUiOverlayStyle(
+        statusBarColor: Colors.black12, // keep it transparent or set a color
+        statusBarIconBrightness: Brightness.dark, // for Android
+        statusBarBrightness: Brightness.light, // for iOS
       ),
-      body: isLoading
-          ? Center(
+    );
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFF5F7FA),
+      body: _isLoading
+          ? const Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            CircularProgressIndicator(color: Colors.green),
+            CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF2E7D32)),
+            ),
             SizedBox(height: 16),
             Text(
-              'Loading Prayer Times...',
+              "Loading prayer times...",
               style: TextStyle(
+                color: Colors.grey,
                 fontSize: 16,
-                color: Colors.grey.shade600,
               ),
             ),
           ],
         ),
       )
-          : error != null
+          : _prayerTime == null
           ? Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
+            const Icon(
               Icons.error_outline,
               size: 64,
               color: Colors.red,
             ),
-            SizedBox(height: 16),
-            Text(
-              error!,
+            const SizedBox(height: 16),
+            const Text(
+              "Failed to load prayer times",
               style: TextStyle(
-                fontSize: 16,
-                color: Colors.red,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
               ),
-              textAlign: TextAlign.center,
             ),
-            SizedBox(height: 16),
+            const SizedBox(height: 8),
+            const Text(
+              "Please check your internet connection",
+              style: TextStyle(color: Colors.grey),
+            ),
+            const SizedBox(height: 16),
             ElevatedButton(
               onPressed: () {
                 setState(() {
-                  isLoading = true;
-                  error = null;
+                  _isLoading = true;
                 });
-                fetchPrayerTimes();
+                _loadPrayerData();
               },
-              child: Text('Retry'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green,
+                backgroundColor: const Color(0xFF2E7D32),
                 foregroundColor: Colors.white,
               ),
+              child: const Text("Try Again"),
             ),
           ],
         ),
       )
-          : RefreshIndicator(
-        onRefresh: fetchPrayerTimes,
-        child: SingleChildScrollView(
-          physics: AlwaysScrollableScrollPhysics(),
-          padding: EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Current Time Card
-              Container(
-                padding: EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Colors.green, Colors.green.shade700],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
+          : SingleChildScrollView(
+        child: Column(
+          children: [
+            Container(
+              width: double.infinity,
+              margin: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [Color(0xFF2E7D32), Color(0xFF4CAF50)],
+                ),
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 10,
+                    offset: const Offset(0, 5),
                   ),
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.green.withOpacity(0.3),
-                      spreadRadius: 2,
-                      blurRadius: 8,
-                      offset: Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  children: [
-                    Icon(
-                      Icons.access_time,
-                      color: Colors.white,
-                      size: 32,
-                    ),
-                    SizedBox(height: 8),
-                    Text(
-                      'Current Time',
-                      style: TextStyle(
-                        color: Colors.white70,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    SizedBox(height: 8),
-                    Text(
-                      currentTime,
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 48,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 2,
-                      ),
-                    ),
-                    SizedBox(height: 4),
-                    Text(
-                      prayerData?['title'] ?? 'Bizerte, Tunisia',
-                      style: TextStyle(
-                        color: Colors.white70,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ],
-                ),
+                ],
               ),
-              SizedBox(height: 24),
-
-              // Date and Weather Info
-              if (prayerData != null) ...[
-                Row(
-                  children: [
-                    Expanded(
-                      child: Container(
-                        padding: EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(12),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.grey.withOpacity(0.1),
-                              spreadRadius: 1,
-                              blurRadius: 3,
-                              offset: Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: Column(
-                          children: [
-                            Icon(Icons.calendar_today, color: Colors.blue),
-                            SizedBox(height: 8),
-                            Text(
-                              'Date',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey.shade600,
-                              ),
-                            ),
-                            SizedBox(height: 4),
-                            Text(
-                              prayerData!['items'][0]['date_for'],
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+              child: Column(
+                children: [
+                  const SizedBox(height: 10),
+                  Text(
+                    "الصلاة القادمة: ${arabicPrayerNames[_getNextPrayerName(_prayerTime!).toLowerCase()]}",
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 30,
+                      fontWeight: FontWeight.bold,
                     ),
-                    SizedBox(width: 12),
-                    Expanded(
-                      child: Container(
-                        padding: EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(12),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.grey.withOpacity(0.1),
-                              spreadRadius: 1,
-                              blurRadius: 3,
-                              offset: Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: Column(
-                          children: [
-                            Icon(Icons.thermostat, color: Colors.orange),
-                            SizedBox(height: 8),
-                            Text(
-                              'Temperature',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey.shade600,
-                              ),
-                            ),
-                            SizedBox(height: 4),
-                            Text(
-                              '${prayerData!['today_weather']['temperature']}°C',
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                SizedBox(height: 24),
-              ],
-
-              // Prayer Times Section
-              Text(
-                'Prayer Times',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
-                ),
+                  ),
+                ],
               ),
-              SizedBox(height: 16),
-
-              if (prayerData != null && prayerData!['items'].isNotEmpty) ...[
-                _buildPrayerTimeCard(
-                    'Fajr',
-                    prayerData!['items'][0]['fajr'],
-                    _getNextPrayer() == 'Fajr'
-                ),
-                _buildPrayerTimeCard(
-                    'Dhuhr',
-                    prayerData!['items'][0]['dhuhr'],
-                    _getNextPrayer() == 'Dhuhr'
-                ),
-                _buildPrayerTimeCard(
-                    'Asr',
-                    prayerData!['items'][0]['asr'],
-                    _getNextPrayer() == 'Asr'
-                ),
-                _buildPrayerTimeCard(
-                    'Maghrib',
-                    prayerData!['items'][0]['maghrib'],
-                    _getNextPrayer() == 'Maghrib'
-                ),
-                _buildPrayerTimeCard(
-                    'Isha',
-                    prayerData!['items'][0]['isha'],
-                    _getNextPrayer() == 'Isha'
-                ),
-              ],
-
-              SizedBox(height: 24),
-
-              // Additional Info
-              if (prayerData != null) ...[
-                Container(
-                  padding: EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.grey.withOpacity(0.1),
-                        spreadRadius: 1,
-                        blurRadius: 3,
-                        offset: Offset(0, 2),
-                      ),
-                    ],
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Column(
+                children: [
+                  // Apply the formatting function to each prayer time
+                  _buildPrayerCard("الفجر", helper().formatTimeTo24Hour(_prayerTime!.fajr), Icons.nights_stay, const Color(0xFF1A237E)),
+                  _buildPrayerCard("شروق الشمس", helper().formatTimeTo24Hour(_prayerTime!.shurooq), Icons.wb_sunny, const Color(0xFFFF8F00)),
+                  _buildPrayerCard("الظهر", helper().formatTimeTo24Hour(_prayerTime!.dhuhr), Icons.wb_sunny_outlined, const Color(0xFFE65100)),
+                  _buildPrayerCard("العصر", helper().formatTimeTo24Hour(_prayerTime!.asr), Icons.wb_twilight, const Color(0xFFBF360C)),
+                  _buildPrayerCard("المغرب", helper().formatTimeTo24Hour(_prayerTime!.maghrib), Icons.brightness_3, const Color(0xFF4A148C)),
+                  _buildPrayerCard("العشاء", helper().formatTimeTo24Hour(_prayerTime!.isha), Icons.bedtime, const Color(0xFF263238)),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+            Container(
+              margin: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, 2),
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Additional Information',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black87,
-                        ),
-                      ),
-                      SizedBox(height: 12),
-                      Row(
-                        children: [
-                          Icon(Icons.explore, size: 16, color: Colors.grey.shade600),
-                          SizedBox(width: 8),
-                          Text(
-                            'Qibla Direction: ${prayerData!['qibla_direction']}°',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.grey.shade700,
-                            ),
-                          ),
-                        ],
-                      ),
-                      SizedBox(height: 8),
-                      Row(
-                        children: [
-                          Icon(Icons.calculate, size: 16, color: Colors.grey.shade600),
-                          SizedBox(width: 8),
-                          Text(
-                            'Method: ${prayerData!['prayer_method_name']}',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.grey.shade700,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
+                ],
+              ),
+              child: const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.location_on, size: 25, color: Color(0xFF2E7D32)),
+                  SizedBox(width: 8),
+                  Text(
+                    "مواقيت الصلات في سيدي علي الشباب",
+                    style: TextStyle(
+                      color: Color(0xFF2E7D32),
+                      fontSize: 19,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                ),
-              ],
-            ],
-          ),
+                ],
+              ),
+            ),
+          ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildPrayerCard(String prayerName, String time, IconData icon, Color color) {
+    final isNext = _isNextPrayer(prayerName);
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: EdgeInsets.all(isNext ? 24 : 16),
+      decoration: BoxDecoration(
+        gradient: isNext
+            ? const LinearGradient(
+          colors: [Color(0xFF2E7D32), Color(0xFF66BB6A)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        )
+            : null,
+        color: isNext ? null : Colors.white,
+        borderRadius: BorderRadius.circular(isNext ? 20 : 12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: isNext ? 15 : 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: isNext ? Colors.white.withOpacity(0.2) : color.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(
+              icon,
+              color: isNext ? Colors.white : color,
+              size: isNext ? 30 : 24,
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  isNext ? "⏰ $prayerName" : prayerName,
+                  style: TextStyle(
+                    fontSize: isNext ? 20 : 16,
+                    fontWeight: FontWeight.bold,
+                    color: isNext ? Colors.white : Colors.black87,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: isNext ? Colors.white.withOpacity(0.2) : color.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              time,
+              style: TextStyle(
+                fontSize: isNext ? 18 : 16,
+                fontWeight: FontWeight.bold,
+                color: isNext ? Colors.white : color,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

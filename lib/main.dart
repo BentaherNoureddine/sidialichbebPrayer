@@ -1,15 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:sidialichbeb/pages/prayerTimePage.dart';
+import 'package:sidialichbeb/service/prayerTimeService.dart';
 
 
 Future<void> main() async {
+
   WidgetsFlutterBinding.ensureInitialized();
 
-
-
-
-
-
+  await PrayerTimeService().launchPrayerTimeData();
 
   runApp(const MyApp());
 }
