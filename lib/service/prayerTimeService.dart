@@ -18,12 +18,12 @@ class PrayerTimeService {
 
     await Future.wait([
       prefs.setString('date_for', prayerTimes.dateFor),
-      prefs.setString('fajr', prayerTimes.fajr),
-      prefs.setString('shurooq', prayerTimes.shurooq),
-      prefs.setString('dhuhr', prayerTimes.dhuhr),
-      prefs.setString('asr', prayerTimes.asr),
-      prefs.setString('maghrib', prayerTimes.maghrib),
-      prefs.setString('isha', prayerTimes.isha),
+      prefs.setString('fajr',helper.formatTimeTo24Hour(prayerTimes.fajr)),
+      prefs.setString('shurooq',helper.formatTimeTo24Hour(prayerTimes.shurooq)),
+      prefs.setString('dhuhr', helper.formatTimeTo24Hour(prayerTimes.dhuhr)),
+      prefs.setString('asr', helper.formatTimeTo24Hour(prayerTimes.asr)),
+      prefs.setString('maghrib', helper.formatTimeTo24Hour(prayerTimes.maghrib)),
+      prefs.setString('isha', helper.formatTimeTo24Hour(prayerTimes.isha)),
     ]);
 
   }
@@ -48,6 +48,7 @@ class PrayerTimeService {
         return null;
       }
 
+
       return PrayerTime(
         dateFor!,
         fajr!,
@@ -69,7 +70,11 @@ class PrayerTimeService {
       PrayerTime? prayerTime = await MuslimSalatApiService().fetchPrayerData();
 
       print(prayerTime);
+      for(int i=0 ;i<10; i++){
+        print("prayer time data : ");
+        print(prayerTime?.asr);
 
+      }
       if (prayerTime != null) {
 
         prayerTime = PrayerTime(
@@ -78,7 +83,7 @@ class PrayerTimeService {
           prayerTime.shurooq,
           prayerTime.dhuhr,
           prayerTime.asr,
-         prayerTime.maghrib,
+          prayerTime.maghrib,
           prayerTime.isha,
         );
 
@@ -103,22 +108,25 @@ class PrayerTimeService {
 
 
     final times = {
-      'Fajr': helper.parseTime(today,prayerTime.fajr),
-      'Shurooq': helper.parseTime(today,prayerTime.shurooq),
-      'Dhuhr': helper.parseTime(today,prayerTime.dhuhr),
-      'Asr': helper.parseTime(today,prayerTime.asr),
-      'Maghrib': helper.parseTime(today,prayerTime.maghrib),
-      'Isha': helper.parseTime(today,prayerTime.isha),
+      'fajr': helper.parseTime(today,prayerTime.fajr),
+      'dhuhr': helper.parseTime(today,prayerTime.dhuhr),
+      'asr': helper.parseTime(today,prayerTime.asr),
+      'maghrib': helper.parseTime(today,prayerTime.maghrib),
+      'isha': helper.parseTime(today,prayerTime.isha),
     };
+
+
+    print(helper.parseTime(today,prayerTime.asr));
 
     for (final entry in times.entries) {
       if (now.isBefore(entry.value)) {
+
         return entry.key;
       }
     }
 
     // If all today's prayers passed, Fajr is the next one tomorrow
-    return 'Fajr (tomorrow)';
+    return 'Fajr';
   }
 
 

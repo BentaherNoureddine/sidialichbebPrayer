@@ -38,6 +38,10 @@ class _PrayerTimePage extends State<PrayerTimePage> {
     final prayerService = PrayerTimeService();
     PrayerTime? data = await prayerService.getPrayerTimesFromSharedPref();
 
+    for(int i=0;i<10;i++){
+      print(data);
+    }
+
     setState(() {
       _prayerTime = data;
       _isLoading = false;
